@@ -17,9 +17,9 @@ model User {
   name      String
   email     String   @unique
   password  String
+  role      String   @default("customer")
   createdAt DateTime @default(now())
 }
-
 model Order {
   id        Int      @id @default(autoincrement())
   userId    Int
@@ -28,7 +28,6 @@ model Order {
   createdAt DateTime @default(now())
   items     OrderItem[]
 }
-
 model OrderItem {
   id        Int      @id @default(autoincrement())
   orderId   Int

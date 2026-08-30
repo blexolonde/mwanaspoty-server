@@ -6,6 +6,7 @@ const prisma = new PrismaClient();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const authMiddleware = require("./authMiddleware");
+const adminMiddleware = require("./adminMiddleware");
 
 const app = express();
 app.use(cors());
@@ -44,52 +45,42 @@ app.get("/api/jerseys/:id", async (req, res) => {
 
 app.post("/api/register", async (req, res) => {
   const { name, email, password } = req.body;
-
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     return res.status(400).json({ error: "Email already registered" });
   }
-
   const hashedPassword = await bcrypt.hash(password, 10);
-
   const user = await prisma.user.create({
     data: { name, email, password: hashedPassword },
   });
-
   res.json({ id: user.id, name: user.name, email: user.email });
 });
 
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
-
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
     return res.status(400).json({ error: "Invalid email or password" });
   }
-
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) {
     return res.status(400).json({ error: "Invalid email or password" });
   }
-
   const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
     expiresIn: "7d",
   });
-
   res.json({
     token,
-    user: { id: user.id, name: user.name, email: user.email },
+    user: { id: user.id, name: user.name, email: user.email, role: user.role },
   });
 });
 
 app.post("/api/orders", authMiddleware, async (req, res) => {
   const { items } = req.body;
-
   const total = items.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
-
   const order = await prisma.order.create({
     data: {
       userId: req.userId,
@@ -104,7 +95,6 @@ app.post("/api/orders", authMiddleware, async (req, res) => {
     },
     include: { items: true },
   });
-
   res.json(order);
 });
 
@@ -125,6 +115,81 @@ app.get("/api/orders/:id", authMiddleware, async (req, res) => {
   if (!order) return res.status(404).json({ error: "Order not found" });
   res.json(order);
 });
+
+app.post("/api/jerseys", authMiddleware, adminMiddleware, async (req, res) => {
+  const { team, price, league } = req.body;
+  const jersey = await prisma.jersey.create({ data: { team, price, league } });
+  res.json(jersey);
+});
+
+app.put(
+  "/api/jerseys/:id",
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    const { team, price, league } = req.body;
+    const jersey = await prisma.jersey.update({
+      where: { id: Number(req.params.id) },
+      data: { team, price, league },
+    });
+    res.json(jersey);
+  },
+);
+
+app.delete(
+  "/api/jerseys/:id",
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    await prisma.jersey.delete({ where: { id: Number(req.params.id) } });
+    res.json({ success: true });
+  },
+);
+
+app.get(
+  "/api/admin/orders",
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    const orders = await prisma.order.findMany({
+      include: { items: true },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json(orders);
+  },
+);
+
+app.patch(
+  "/api/admin/orders/:id",
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    const { status } = req.body;
+    const order = await prisma.order.update({
+      where: { id: Number(req.params.id) },
+      data: { status },
+    });
+    res.json(order);
+  },
+);
+
+app.get(
+  "/api/admin/customers",
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+    res.json(users);
+  },
+);
 
 const PORT = 5000;
 app.listen(PORT, () => {
