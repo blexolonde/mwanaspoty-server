@@ -87,6 +87,7 @@ app.post("/api/orders", authMiddleware, async (req, res) => {
       total,
       items: {
         create: items.map((item) => ({
+          jerseyId: item.id,
           team: item.team,
           price: item.price,
           quantity: item.quantity || 1,
@@ -188,6 +189,102 @@ app.get(
       },
     });
     res.json(users);
+  },
+);
+
+app.get(
+  "/api/admin/analytics/best-sellers",
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    const items = await prisma.orderItem.groupBy({
+      by: ["team"],
+      _sum: { quantity: true },
+      orderBy: { _sum: { quantity: "desc" } },
+      take: 5,
+    });
+    res.json(items.map((i) => ({ team: i.team, sold: i._sum.quantity })));
+  },
+);
+
+app.get(
+  "/api/admin/analytics/best-leagues",
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    const items = await prisma.orderItem.findMany({
+      include: { jersey: true },
+    });
+    const leagueTotals = {};
+    items.forEach((item) => {
+      if (!item.jersey) return;
+      const league = item.jersey.league;
+      leagueTotals[league] = (leagueTotals[league] || 0) + item.quantity;
+    });
+    const result = Object.entries(leagueTotals)
+      .map(([league, sold]) => ({ league, sold }))
+      .sort((a, b) => b.sold - a.sold);
+    res.json(result);
+  },
+);
+
+app.get(
+  "/api/admin/analytics/low-stock",
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    const jerseys = await prisma.jersey.findMany({
+      where: { stock: { lt: 5 } },
+      orderBy: { stock: "asc" },
+    });
+    res.json(jerseys);
+  },
+);
+
+app.get(
+  "/api/admin/analytics/segments",
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    const orders = await prisma.order.findMany({
+      select: { userId: true, total: true },
+    });
+    const spendByUser = {};
+    orders.forEach((o) => {
+      spendByUser[o.userId] = (spendByUser[o.userId] || 0) + o.total;
+    });
+    let high = 0,
+      medium = 0,
+      low = 0;
+    Object.values(spendByUser).forEach((spend) => {
+      if (spend >= 15000) high++;
+      else if (spend >= 6000) medium++;
+      else low++;
+    });
+    res.json({ high, medium, low });
+  },
+);
+
+app.get(
+  "/api/admin/analytics/sales-trend",
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const orders = await prisma.order.findMany({
+      where: { createdAt: { gte: sevenDaysAgo } },
+      select: { total: true, createdAt: true },
+    });
+    const dailyTotals = {};
+    orders.forEach((o) => {
+      const day = o.createdAt.toISOString().split("T")[0];
+      dailyTotals[day] = (dailyTotals[day] || 0) + o.total;
+    });
+    const result = Object.entries(dailyTotals)
+      .map(([date, total]) => ({ date, total }))
+      .sort((a, b) => (a.date > b.date ? 1 : -1));
+    res.json(result);
   },
 );
 
