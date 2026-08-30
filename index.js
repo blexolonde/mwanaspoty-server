@@ -5,6 +5,7 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const authMiddleware = require("./authMiddleware");
 
 const app = express();
 app.use(cors());
@@ -79,6 +80,50 @@ app.post("/api/login", async (req, res) => {
     token,
     user: { id: user.id, name: user.name, email: user.email },
   });
+});
+
+app.post("/api/orders", authMiddleware, async (req, res) => {
+  const { items } = req.body;
+
+  const total = items.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
+
+  const order = await prisma.order.create({
+    data: {
+      userId: req.userId,
+      total,
+      items: {
+        create: items.map((item) => ({
+          team: item.team,
+          price: item.price,
+          quantity: item.quantity || 1,
+        })),
+      },
+    },
+    include: { items: true },
+  });
+
+  res.json(order);
+});
+
+app.get("/api/orders", authMiddleware, async (req, res) => {
+  const orders = await prisma.order.findMany({
+    where: { userId: req.userId },
+    include: { items: true },
+    orderBy: { createdAt: "desc" },
+  });
+  res.json(orders);
+});
+
+app.get("/api/orders/:id", authMiddleware, async (req, res) => {
+  const order = await prisma.order.findFirst({
+    where: { id: Number(req.params.id), userId: req.userId },
+    include: { items: true },
+  });
+  if (!order) return res.status(404).json({ error: "Order not found" });
+  res.json(order);
 });
 
 const PORT = 5000;
