@@ -7,6 +7,10 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const authMiddleware = require("./authMiddleware");
 const adminMiddleware = require("./adminMiddleware");
+const multer = require("multer");
+const cloudinary = require("./cloudinary");
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 const app = express();
 app.use(cors());
@@ -26,6 +30,23 @@ app.get("/api/jerseys", async (req, res) => {
     },
   });
   res.json(jerseys);
+});
+
+app.get("/api/best-sellers", async (req, res) => {
+  const items = await prisma.orderItem.groupBy({
+    by: ["jerseyId"],
+    _sum: { quantity: true },
+    orderBy: { _sum: { quantity: "desc" } },
+    take: 8,
+  });
+  const jerseyIds = items.map((i) => i.jerseyId).filter(Boolean);
+  const jerseys = await prisma.jersey.findMany({
+    where: { id: { in: jerseyIds } },
+  });
+  const result = items
+    .map((i) => jerseys.find((j) => j.id === i.jerseyId))
+    .filter(Boolean);
+  res.json(result);
 });
 
 app.get("/api/leagues", async (req, res) => {
@@ -119,9 +140,9 @@ app.get("/api/orders/:id", authMiddleware, async (req, res) => {
 });
 
 app.post("/api/jerseys", authMiddleware, adminMiddleware, async (req, res) => {
-  const { team, price, league, isClassic } = req.body;
+  const { team, price, league, isClassic, image } = req.body;
   const jersey = await prisma.jersey.create({
-    data: { team, price, league, isClassic: isClassic || false },
+    data: { team, price, league, isClassic: isClassic || false, image },
   });
   res.json(jersey);
 });
@@ -147,6 +168,30 @@ app.delete(
   async (req, res) => {
     await prisma.jersey.delete({ where: { id: Number(req.params.id) } });
     res.json({ success: true });
+  },
+);
+
+app.post(
+  "/api/upload",
+  authMiddleware,
+  adminMiddleware,
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      const result = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: "mwanaspoty" },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          },
+        );
+        stream.end(req.file.buffer);
+      });
+      res.json({ url: result.secure_url });
+    } catch (err) {
+      res.status(500).json({ error: "Upload failed" });
+    }
   },
 );
 
