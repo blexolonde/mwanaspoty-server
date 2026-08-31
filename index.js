@@ -17,11 +17,12 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/jerseys", async (req, res) => {
-  const { league, search } = req.query;
+  const { league, search, classic } = req.query;
   const jerseys = await prisma.jersey.findMany({
     where: {
       league: league ? league : undefined,
       team: search ? { contains: search, mode: "insensitive" } : undefined,
+      isClassic: classic === "true" ? true : undefined,
     },
   });
   res.json(jerseys);
@@ -118,8 +119,10 @@ app.get("/api/orders/:id", authMiddleware, async (req, res) => {
 });
 
 app.post("/api/jerseys", authMiddleware, adminMiddleware, async (req, res) => {
-  const { team, price, league } = req.body;
-  const jersey = await prisma.jersey.create({ data: { team, price, league } });
+  const { team, price, league, isClassic } = req.body;
+  const jersey = await prisma.jersey.create({
+    data: { team, price, league, isClassic: isClassic || false },
+  });
   res.json(jersey);
 });
 
