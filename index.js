@@ -210,7 +210,10 @@ app.get(
   adminMiddleware,
   async (req, res) => {
     const orders = await prisma.order.findMany({
-      include: { items: true },
+      include: {
+        items: true,
+        user: { select: { name: true, email: true } },
+      },
       orderBy: { createdAt: "desc" },
     });
     res.json(orders);

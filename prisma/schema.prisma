@@ -23,10 +23,12 @@ model User {
   password  String
   role      String   @default("customer")
   createdAt DateTime @default(now())
+  orders    Order[]
 }
 model Order {
   id        Int         @id @default(autoincrement())
   userId    Int
+  user      User        @relation(fields: [userId], references: [id])
   total     Int
   status    String      @default("pending")
   createdAt DateTime    @default(now())
