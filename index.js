@@ -140,9 +140,15 @@ app.get("/api/orders/:id", authMiddleware, async (req, res) => {
 });
 
 app.post("/api/jerseys", authMiddleware, adminMiddleware, async (req, res) => {
-  const { team, price, league, isClassic, image } = req.body;
+  const { team, price, league, isClassic, images } = req.body;
   const jersey = await prisma.jersey.create({
-    data: { team, price, league, isClassic: isClassic || false, image },
+    data: {
+      team,
+      price,
+      league,
+      isClassic: isClassic || false,
+      images: images || [],
+    },
   });
   res.json(jersey);
 });
@@ -152,10 +158,10 @@ app.put(
   authMiddleware,
   adminMiddleware,
   async (req, res) => {
-    const { team, price, league } = req.body;
+    const { team, price, league, images } = req.body;
     const jersey = await prisma.jersey.update({
       where: { id: Number(req.params.id) },
-      data: { team, price, league },
+      data: { team, price, league, images },
     });
     res.json(jersey);
   },
@@ -175,20 +181,23 @@ app.post(
   "/api/upload",
   authMiddleware,
   adminMiddleware,
-  upload.single("image"),
+  upload.array("images", 5),
   async (req, res) => {
     try {
-      const result = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          { folder: "mwanaspoty" },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          },
-        );
-        stream.end(req.file.buffer);
+      const uploadPromises = req.files.map((file) => {
+        return new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: "mwanaspoty" },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result.secure_url);
+            },
+          );
+          stream.end(file.buffer);
+        });
       });
-      res.json({ url: result.secure_url });
+      const urls = await Promise.all(uploadPromises);
+      res.json({ urls });
     } catch (err) {
       res.status(500).json({ error: "Upload failed" });
     }

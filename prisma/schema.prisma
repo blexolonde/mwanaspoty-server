@@ -1,12 +1,10 @@
 generator client {
   provider = "prisma-client-js"
 }
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
 model Jersey {
   id         Int         @id @default(autoincrement())
   team       String
@@ -14,11 +12,10 @@ model Jersey {
   league     String
   stock      Int         @default(20)
   isClassic  Boolean     @default(false)
-  image      String?
+  images     String[]    @default([])
   createdAt  DateTime    @default(now())
   orderItems OrderItem[]
 }
-
 model User {
   id        Int      @id @default(autoincrement())
   name      String
@@ -27,7 +24,6 @@ model User {
   role      String   @default("customer")
   createdAt DateTime @default(now())
 }
-
 model Order {
   id        Int         @id @default(autoincrement())
   userId    Int
@@ -36,7 +32,6 @@ model Order {
   createdAt DateTime    @default(now())
   items     OrderItem[]
 }
-
 model OrderItem {
   id        Int      @id @default(autoincrement())
   orderId   Int
