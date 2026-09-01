@@ -246,6 +246,7 @@ app.get(
         email: true,
         role: true,
         createdAt: true,
+        _count: { select: { orders: true } },
       },
     });
     res.json(users);
