@@ -153,15 +153,23 @@ app.post("/api/jerseys", authMiddleware, adminMiddleware, async (req, res) => {
   res.json(jersey);
 });
 
+// ✅ UPDATED PUT route — supports all editable fields
 app.put(
   "/api/jerseys/:id",
   authMiddleware,
   adminMiddleware,
   async (req, res) => {
-    const { team, price, league, images } = req.body;
+    const { team, price, league, images, isClassic, stock } = req.body;
     const jersey = await prisma.jersey.update({
       where: { id: Number(req.params.id) },
-      data: { team, price, league, images },
+      data: {
+        team,
+        price: Number(price),
+        league,
+        images,
+        isClassic,
+        stock: Number(stock),
+      },
     });
     res.json(jersey);
   },
