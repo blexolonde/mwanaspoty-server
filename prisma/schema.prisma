@@ -1,10 +1,12 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
 model Jersey {
   id         Int         @id @default(autoincrement())
   team       String
@@ -16,6 +18,7 @@ model Jersey {
   createdAt  DateTime    @default(now())
   orderItems OrderItem[]
 }
+
 model User {
   id        Int      @id @default(autoincrement())
   name      String
@@ -25,6 +28,7 @@ model User {
   createdAt DateTime @default(now())
   orders    Order[]
 }
+
 model Order {
   id        Int         @id @default(autoincrement())
   userId    Int
@@ -34,13 +38,18 @@ model Order {
   createdAt DateTime    @default(now())
   items     OrderItem[]
 }
+
 model OrderItem {
-  id        Int      @id @default(autoincrement())
-  orderId   Int
-  order     Order    @relation(fields: [orderId], references: [id])
-  jerseyId  Int?
-  jersey    Jersey?  @relation(fields: [jerseyId], references: [id])
-  team      String
-  price     Int
-  quantity  Int      @default(1)
+  id            Int      @id @default(autoincrement())
+  orderId       Int
+  order         Order    @relation(fields: [orderId], references: [id])
+  jerseyId      Int?
+  jersey        Jersey?  @relation(fields: [jerseyId], references: [id])
+  team          String
+  price         Int
+  quantity      Int      @default(1)
+  size          String?
+  customName    String?
+  customNumber  String?
+  badge         String?
 }

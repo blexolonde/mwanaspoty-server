@@ -113,6 +113,10 @@ app.post("/api/orders", authMiddleware, async (req, res) => {
           team: item.team,
           price: item.price,
           quantity: item.quantity || 1,
+          size: item.size || null,
+          customName: item.customName || null,
+          customNumber: item.customNumber || null,
+          badge: item.badge || null,
         })),
       },
     },
@@ -219,12 +223,38 @@ app.get(
   async (req, res) => {
     const orders = await prisma.order.findMany({
       include: {
-        items: true,
+        items: {
+          select: {
+            id: true,
+            team: true,
+            price: true,
+            quantity: true,
+            size: true,
+            badge: true,
+          },
+        },
         user: { select: { name: true, email: true } },
       },
       orderBy: { createdAt: "desc" },
     });
     res.json(orders);
+  },
+);
+
+app.get(
+  "/api/admin/orders/:id",
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    const order = await prisma.order.findUnique({
+      where: { id: Number(req.params.id) },
+      include: {
+        items: true,
+        user: { select: { name: true, email: true } },
+      },
+    });
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    res.json(order);
   },
 );
 
